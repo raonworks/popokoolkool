@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">popokoolkool</string>
+    <string name="title_activity_main">popokoolkool</string>
+    <string name="package_name">com.raonworks.apps</string>
+    <string name="custom_url_scheme">com.raonworks.apps</string>
+</resources>
