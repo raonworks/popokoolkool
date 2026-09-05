@@ -12,23 +12,26 @@ function App() {
 
   return (
     <main className="App">
-      <section className="main-panel" aria-label="밤 분위기의 메인 패널">
-        <div className="stars" aria-hidden="true">
-          {stars.map(([left, top, size, delay], index) => (
-            <span
-              className="star"
-              key={index}
-              style={{
+      <div className="stars" aria-hidden="true">
+        {stars.map(([left, top, size, delay], index) => (
+          <span
+            className={`star${size <= 0.5 ? " star-tiny" : ""}`}
+            key={index}
+            style={
+              {
                 left: `${left}%`,
                 top: `${top}%`,
                 width: `${size}px`,
                 height: `${size}px`,
                 animationDelay: `${delay}s`,
-              }}
-            />
-          ))}
-        </div>
+                "--twinkle-duration": `${9.6 + ((index * 11) % 13) * 0.4}s`,
+              } as React.CSSProperties
+            }
+          />
+        ))}
+      </div>
 
+      <section className="main-panel" aria-label="밤 분위기의 메인 패널">
         <div className="moon" aria-hidden="true" />
         <div className="welcome-copy">
           <p className="eyebrow">popo koolkool</p>
