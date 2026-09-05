@@ -1,122 +1,79 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState } from "react";
+import { CaretRightOutlined, PauseOutlined } from "@ant-design/icons";
+import { Button, Slider } from "antd";
+import "./App.css";
+import { stars } from "./contants";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [volume, setVolume] = useState(68);
+  const [isPlaying, setIsPlaying] = useState(true);
+
+  const displayedVolume = isPlaying ? volume : 0;
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <main className="App">
+      <section className="main-panel" aria-label="밤 분위기의 메인 패널">
+        <div className="stars" aria-hidden="true">
+          {stars.map(([left, top, size, delay], index) => (
+            <span
+              className="star"
+              key={index}
+              style={{
+                left: `${left}%`,
+                top: `${top}%`,
+                width: `${size}px`,
+                height: `${size}px`,
+                animationDelay: `${delay}s`,
+              }}
+            />
+          ))}
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+        <div className="moon" aria-hidden="true" />
+        <div className="welcome-copy">
+          <p className="eyebrow">popo koolkool</p>
+          <h1 style={{ fontFamily: "iyagiGGC" }}>편안히 주무세요</h1>
+          <p className="subcopy">걱정과 고민은 잠시 잊으세요.</p>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+
+        <div className="audio-controller" aria-label="메인 볼륨 컨트롤">
+          <Button
+            className="volume-button"
+            htmlType="button"
+            aria-label={isPlaying ? "재생 중지" : "재생"}
+            aria-pressed={!isPlaying}
+            icon={
+              isPlaying ? (
+                <PauseOutlined size={24} />
+              ) : (
+                <CaretRightOutlined size={24} />
+              )
+            }
+            onClick={() => setIsPlaying((playing) => !playing)}
+          />
+          <div className="volume-info">
+            <div className="volume-heading">
+              <span>Volume</span>
+              <output>{displayedVolume}%</output>
+            </div>
+            <Slider
+              aria-label="Volume"
+              min={0}
+              max={100}
+              value={displayedVolume}
+              onChange={(value) => {
+                if (typeof value !== "number") return;
+
+                setVolume(value);
+                setIsPlaying(true);
+              }}
+            />
+          </div>
         </div>
       </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <section className="sounds-panel" aria-label="사운드 선택 패널"></section>
+    </main>
+  );
 }
 
-export default App
+export default App;
