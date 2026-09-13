@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CaretRightOutlined,
   PauseOutlined,
   SoundOutlined,
 } from "@ant-design/icons";
 import { Button, Slider } from "antd";
+import { AudioPlayer, type SoundConfig } from "./lib/audioPlayer";
 import "./App.css";
 // import { stars } from "./contants";
 
@@ -28,6 +29,7 @@ const soundOptions = [
 ] as const;
 
 function App() {
+  const audioPlayerRef = useRef<AudioPlayer | null>(null);
   const [volume, setVolume] = useState(68);
   const [isPlaying, setIsPlaying] = useState(true);
   const [soundStates, setSoundStates] = useState<
@@ -42,6 +44,48 @@ function App() {
   );
 
   const displayedVolume = isPlaying ? volume : 0;
+
+  useEffect(() => {
+    const audioPlayer = new AudioPlayer();
+    audioPlayerRef.current = audioPlayer;
+
+    return () => {
+      audioPlayer.destroy();
+      audioPlayerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    audioPlayerRef.current?.setMasterVolume(volume);
+  }, [volume]);
+
+  useEffect(() => {
+    Object.entries(soundStates).forEach(([id, state]) => {
+      audioPlayerRef.current?.setSound({
+        id: id as SoundConfig["id"],
+        isPlaying: state.isPlaying,
+        volume: state.volume,
+      });
+    });
+  }, [soundStates]);
+
+  useEffect(() => {
+    const audioPlayer = audioPlayerRef.current;
+    if (!audioPlayer) return;
+
+    if (isPlaying) {
+      void audioPlayer
+        .play(
+          Object.entries(soundStates).map(([id, state]) => ({
+            id: id as SoundConfig["id"],
+            ...state,
+          })),
+        )
+        .catch(() => setIsPlaying(false));
+    } else {
+      audioPlayer.pause();
+    }
+  }, [isPlaying, soundStates]);
 
   return (
     <main className="App">
@@ -96,7 +140,7 @@ function App() {
               aria-label="Volume"
               min={0}
               max={100}
-              value={displayedVolume}
+              value={volume}
               onChange={(value) => {
                 if (typeof value !== "number") return;
 
