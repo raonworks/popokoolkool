@@ -6,6 +6,11 @@ import {
 } from "@ant-design/icons";
 import { Button, Slider } from "antd";
 import { AudioPlayer, type SoundConfig } from "./lib/audioPlayer";
+import {
+  audioBackground,
+  startAudioBackground,
+  stopAudioBackground,
+} from "./lib/audioBackground";
 import "./App.css";
 // import { stars } from "./contants";
 
@@ -48,8 +53,18 @@ function App() {
   useEffect(() => {
     const audioPlayer = new AudioPlayer();
     audioPlayerRef.current = audioPlayer;
+    let mediaActionListener: { remove: () => Promise<void> } | undefined;
+
+    void audioBackground
+      .addListener("mediaAction", ({ action }) => {
+        setIsPlaying(action === "play");
+      })
+      .then((listener) => {
+        mediaActionListener = listener;
+      });
 
     return () => {
+      void mediaActionListener?.remove();
       audioPlayer.destroy();
       audioPlayerRef.current = null;
     };
@@ -74,6 +89,7 @@ function App() {
     if (!audioPlayer) return;
 
     if (isPlaying) {
+      void startAudioBackground();
       void audioPlayer
         .play(
           Object.entries(soundStates).map(([id, state]) => ({
@@ -84,6 +100,7 @@ function App() {
         .catch(() => setIsPlaying(false));
     } else {
       audioPlayer.pause();
+      void stopAudioBackground();
     }
   }, [isPlaying, soundStates]);
 

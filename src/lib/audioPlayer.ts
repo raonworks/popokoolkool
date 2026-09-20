@@ -4,161 +4,212 @@ import thunderAudio from "../assets/sound/thunder-1.mp3";
 export type SoundId = "rain" | "wind" | "thunder" | "fire";
 
 export type SoundConfig = {
-	id: SoundId;
-	volume: number;
-	isPlaying: boolean;
+  id: SoundId;
+  volume: number;
+  isPlaying: boolean;
 };
 
 type AudioLayer = {
- source: AudioBufferSourceNode | null;
- audio: HTMLAudioElement | null;
-	filter: BiquadFilterNode;
-	gain: GainNode;
+  source: AudioBufferSourceNode | null;
+  audio: HTMLAudioElement | null;
+  filter: BiquadFilterNode;
+  gain: GainNode;
 };
 
 const audioSources: Partial<Record<SoundId, string>> = {
- rain: rainAudio,
- thunder: thunderAudio,
+  rain: rainAudio,
+  thunder: thunderAudio,
 };
 
-const filterConfig: Record<SoundId, { type: BiquadFilterType; frequency: number }> = {
-	rain: { type: "lowpass", frequency: 5200 },
-	wind: { type: "lowpass", frequency: 900 },
-	thunder: { type: "lowpass", frequency: 240 },
-	fire: { type: "bandpass", frequency: 1800 },
+const filterConfig: Record<
+  SoundId,
+  { type: BiquadFilterType; frequency: number }
+> = {
+  rain: { type: "lowpass", frequency: 5200 },
+  wind: { type: "lowpass", frequency: 900 },
+  thunder: { type: "lowpass", frequency: 240 },
+  fire: { type: "bandpass", frequency: 1800 },
 };
 
 function clampVolume(volume: number) {
-	return Math.min(1, Math.max(0, volume / 100));
+  return Math.min(1, Math.max(0, volume / 100));
 }
 
 export class AudioPlayer {
-	private context: AudioContext | null = null;
-	private masterGain: GainNode | null = null;
-	private noiseBuffer: AudioBuffer | null = null;
-	private layers = new Map<SoundId, AudioLayer>();
-	private masterVolume = 0.68;
+  private context: AudioContext | null = null;
+  private masterGain: GainNode | null = null;
+  private noiseBuffer: AudioBuffer | null = null;
+  private layers = new Map<SoundId, AudioLayer>();
+  private masterVolume = 0.68;
 
-	private ensureContext() {
-		if (!this.context) {
-			const AudioContextConstructor =
-				window.AudioContext ??
-				(window as typeof window & { webkitAudioContext?: typeof AudioContext })
-					.webkitAudioContext;
+  private configureMediaSession() {
+    if (!("mediaSession" in navigator)) return;
 
-			if (!AudioContextConstructor) {
-				throw new Error("Web Audio API is not supported");
-			}
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: "포포의 쿨쿨",
+      artist: "Popo KoolKool",
+      album: "수면 사운드 믹서",
+    });
+    navigator.mediaSession.setActionHandler("play", () => {
+      void this.resume();
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      this.pause();
+    });
+    navigator.mediaSession.setActionHandler("stop", () => {
+      this.pause();
+    });
+  }
 
-			this.context = new AudioContextConstructor();
-			this.masterGain = this.context.createGain();
-			this.masterGain.gain.value = this.masterVolume;
-			this.masterGain.connect(this.context.destination);
-		}
+  private ensureContext() {
+    if (!this.context) {
+      const AudioContextConstructor =
+        window.AudioContext ??
+        (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
 
-		return this.context;
-	}
+      if (!AudioContextConstructor) {
+        throw new Error("Web Audio API is not supported");
+      }
 
-	private createNoiseBuffer(context: AudioContext) {
-		if (this.noiseBuffer) return this.noiseBuffer;
+      this.context = new AudioContextConstructor();
+      this.masterGain = this.context.createGain();
+      this.masterGain.gain.value = this.masterVolume;
+      this.masterGain.connect(this.context.destination);
+      this.configureMediaSession();
+    }
 
-		const buffer = context.createBuffer(1, context.sampleRate * 4, context.sampleRate);
-		const channel = buffer.getChannelData(0);
+    return this.context;
+  }
 
-		for (let index = 0; index < channel.length; index += 1) {
-			channel[index] = Math.random() * 2 - 1;
-		}
+  private createNoiseBuffer(context: AudioContext) {
+    if (this.noiseBuffer) return this.noiseBuffer;
 
-		this.noiseBuffer = buffer;
-		return buffer;
-	}
+    const buffer = context.createBuffer(
+      1,
+      context.sampleRate * 4,
+      context.sampleRate,
+    );
+    const channel = buffer.getChannelData(0);
 
-	private createLayer(config: SoundConfig) {
-		const context = this.ensureContext();
-		const masterGain = this.masterGain;
-		if (!masterGain) throw new Error("Audio mixer is not initialized");
+    for (let index = 0; index < channel.length; index += 1) {
+      channel[index] = Math.random() * 2 - 1;
+    }
 
-		const filter = context.createBiquadFilter();
-		const gain = context.createGain();
-		const soundFilter = filterConfig[config.id];
-		const sourceUrl = audioSources[config.id];
-		let source: AudioBufferSourceNode | null = null;
-		let audio: HTMLAudioElement | null = null;
+    this.noiseBuffer = buffer;
+    return buffer;
+  }
 
-		filter.type = soundFilter.type;
-		filter.frequency.value = soundFilter.frequency;
-		gain.gain.value = config.isPlaying ? clampVolume(config.volume) : 0;
+  private createLayer(config: SoundConfig) {
+    const context = this.ensureContext();
+    const masterGain = this.masterGain;
+    if (!masterGain) throw new Error("Audio mixer is not initialized");
 
-		if (sourceUrl) {
-			audio = new Audio(sourceUrl);
-			audio.loop = true;
-			audio.preload = "auto";
-			context.createMediaElementSource(audio).connect(filter);
-		} else {
-			source = context.createBufferSource();
-			source.buffer = this.createNoiseBuffer(context);
-			source.loop = true;
-			source.connect(filter);
-			source.start();
-		}
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    const soundFilter = filterConfig[config.id];
+    const sourceUrl = audioSources[config.id];
+    let source: AudioBufferSourceNode | null = null;
+    let audio: HTMLAudioElement | null = null;
 
-		filter.connect(gain).connect(masterGain);
+    filter.type = soundFilter.type;
+    filter.frequency.value = soundFilter.frequency;
+    gain.gain.value = config.isPlaying ? clampVolume(config.volume) : 0;
 
-		const layer = { source, audio, filter, gain };
-		this.layers.set(config.id, layer);
-		return layer;
-	}
+    if (sourceUrl) {
+      audio = new Audio(sourceUrl);
+      audio.loop = true;
+      audio.preload = "auto";
+      context.createMediaElementSource(audio).connect(filter);
+    } else {
+      source = context.createBufferSource();
+      source.buffer = this.createNoiseBuffer(context);
+      source.loop = true;
+      source.connect(filter);
+      source.start();
+    }
 
-	private getLayer(config: SoundConfig) {
-		return this.layers.get(config.id) ?? this.createLayer(config);
-	}
+    filter.connect(gain).connect(masterGain);
 
-	async play(configs: SoundConfig[]) {
-		const context = this.ensureContext();
-		if (context.state === "suspended") await context.resume();
+    const layer = { source, audio, filter, gain };
+    this.layers.set(config.id, layer);
+    return layer;
+  }
 
-		configs.forEach((config) => this.setSound(config));
-		await Promise.all(
-			Array.from(this.layers.values()).map((layer) =>
-				layer.audio?.play(),
-			),
-		);
-	}
+  private getLayer(config: SoundConfig) {
+    return this.layers.get(config.id) ?? this.createLayer(config);
+  }
 
-	pause() {
-		this.layers.forEach(({ audio }) => audio?.pause());
-		if (this.context?.state === "running") {
-			void this.context.suspend();
-		}
-	}
+  async play(configs: SoundConfig[]) {
+    const context = this.ensureContext();
+    if (context.state === "suspended") await context.resume();
 
-	setMasterVolume(volume: number) {
-		this.masterVolume = clampVolume(volume * 100);
-		if (this.masterGain && this.context) {
-			this.masterGain.gain.setTargetAtTime(this.masterVolume, this.context.currentTime, 0.04);
-		}
-	}
+    configs.forEach((config) => this.setSound(config));
+    await Promise.all(
+      Array.from(this.layers.values()).map((layer) => layer.audio?.play()),
+    );
+    if ("mediaSession" in navigator)
+      navigator.mediaSession.playbackState = "playing";
+  }
 
-	setSound(config: SoundConfig) {
-		const layer = this.getLayer(config);
-		const targetVolume = config.isPlaying ? clampVolume(config.volume) : 0;
+  private async resume() {
+    if (!this.context) return;
+    await this.context.resume();
+    this.layers.forEach(({ audio }) => {
+      void audio?.play();
+    });
+    if ("mediaSession" in navigator)
+      navigator.mediaSession.playbackState = "playing";
+  }
 
-		if (this.context) {
-			layer.gain.gain.setTargetAtTime(targetVolume, this.context.currentTime, 0.04);
-		} else {
-			layer.gain.gain.value = targetVolume;
-		}
-	}
+  pause() {
+    this.layers.forEach(({ audio }) => audio?.pause());
+    if (this.context?.state === "running") {
+      void this.context.suspend();
+    }
+    if ("mediaSession" in navigator)
+      navigator.mediaSession.playbackState = "paused";
+  }
 
-	destroy() {
-		this.layers.forEach(({ source, audio }) => {
-			source?.stop();
-			audio?.pause();
-		});
-		this.layers.clear();
-		if (this.context) void this.context.close();
-		this.context = null;
-		this.masterGain = null;
-		this.noiseBuffer = null;
-	}
+  setMasterVolume(volume: number) {
+    this.masterVolume = clampVolume(volume);
+    if (this.masterGain && this.context) {
+      this.masterGain.gain.setTargetAtTime(
+        this.masterVolume,
+        this.context.currentTime,
+        0.04,
+      );
+    }
+  }
+
+  setSound(config: SoundConfig) {
+    const layer = this.getLayer(config);
+    const targetVolume = config.isPlaying ? clampVolume(config.volume) : 0;
+
+    if (this.context) {
+      layer.gain.gain.setTargetAtTime(
+        targetVolume,
+        this.context.currentTime,
+        0.04,
+      );
+    } else {
+      layer.gain.gain.value = targetVolume;
+    }
+  }
+
+  destroy() {
+    this.layers.forEach(({ source, audio }) => {
+      source?.stop();
+      audio?.pause();
+    });
+    this.layers.clear();
+    if (this.context) void this.context.close();
+    this.context = null;
+    this.masterGain = null;
+    this.noiseBuffer = null;
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "none";
+      navigator.mediaSession.metadata = null;
+    }
+  }
 }

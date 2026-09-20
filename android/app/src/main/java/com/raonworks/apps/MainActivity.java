@@ -21,6 +21,7 @@ public class MainActivity extends BridgeActivity {
 
 	@Override
 	public void onCreate(@Nullable Bundle savedInstanceState) {
+		registerPlugin(AudioBackgroundPlugin.class);
 		super.onCreate(savedInstanceState);
 
 		WebView webView = getBridge().getWebView();
