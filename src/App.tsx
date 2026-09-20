@@ -88,7 +88,7 @@ function App() {
   }, [isPlaying, soundStates]);
 
   return (
-    <main className="min-h-svh bg-[#07101d]">
+    <main className="min-h-svh bg-night-900">
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         {/* {stars.map(([left, top, size, delay], index) => (
           <span
@@ -114,12 +114,21 @@ function App() {
       >
         <div className="moon" aria-hidden="true" />
         <div className="relative z-[1] mb-[110px] text-center max-[600px]:mb-[130px]">
-          <p className="mb-4 text-[12px] font-bold uppercase tracking-[0.26em] text-[#9bb3d3]">popo koolkool</p>
-          <h1 className="m-0 text-[clamp(32px,5vw,64px)] font-medium tracking-[-0.04em] text-[#f0f5ff]" style={{ fontFamily: "iyagiGGC" }}>편안히 주무세요</h1>
-          <p className="mt-[14px] text-[15px] text-[#a5b7d1]">걱정과 고민은 잠시 잊으세요.</p>
+          <p className="mb-4 text-[12px] font-bold uppercase tracking-[0.26em] text-[#9bb3d3]">
+            popo koolkool
+          </p>
+          <h1 className="m-0 font-display text-[clamp(32px,5vw,64px)] font-medium tracking-[-0.04em] text-night-text">
+            편안히 주무세요
+          </h1>
+          <p className="mt-[14px] text-[15px] text-night-muted">
+            걱정과 고민은 잠시 잊으세요.
+          </p>
         </div>
 
-        <div className="absolute inset-x-[clamp(18px,5vw,72px)] bottom-[clamp(18px,5vw,54px)] z-[2] mx-auto flex max-w-[540px] items-center gap-4 rounded-2xl border border-[rgba(180,207,244,0.16)] bg-[rgba(9,22,39,0.72)] px-5 py-4 shadow-[0_14px_30px_rgba(0,0,0,0.2),inset_0_1px_rgba(255,255,255,0.05)] backdrop-blur-2xl max-[600px]:px-[15px] max-[600px]:py-[14px]" aria-label="메인 볼륨 컨트롤">
+        <div
+          className="absolute inset-x-[clamp(18px,5vw,72px)] bottom-[clamp(18px,5vw,54px)] z-[2] mx-auto flex max-w-[540px] items-center gap-4 rounded-2xl border border-[rgba(180,207,244,0.16)] bg-[rgba(9,22,39,0.72)] px-5 py-4 shadow-[0_14px_30px_rgba(0,0,0,0.2),inset_0_1px_rgba(255,255,255,0.05)] backdrop-blur-2xl max-[600px]:px-[15px] max-[600px]:py-[14px]"
+          aria-label="메인 볼륨 컨트롤"
+        >
           <Button
             className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-full border border-[rgba(190,216,250,0.2)] bg-[rgba(118,158,211,0.14)] p-0 text-base text-[#e5efff] transition-[background,border-color,transform] duration-180 hover:!border-[rgba(190,216,250,0.45)] hover:!bg-[rgba(118,158,211,0.25)] hover:!text-[#e5efff] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-[#b8d3f5] focus-visible:outline-offset-3"
             htmlType="button"
@@ -154,10 +163,15 @@ function App() {
           </div>
         </div>
       </section>
-      <section className="bg-[#07101d] px-[clamp(18px,5vw,72px)] pb-9 pt-[clamp(18px,3vw,32px)]" aria-label="사운드 선택 패널">
+      <section
+        className="bg-night-900 px-[clamp(18px,5vw,72px)] pb-9 pt-[clamp(18px,3vw,32px)]"
+        aria-label="사운드 선택 패널"
+      >
         <div className="mx-auto mb-6 flex max-w-[982px] items-end justify-between gap-6 text-left">
           <div>
-            <h2 className="m-0 text-[clamp(22px,3vw,32px)] font-medium text-[#edf4ff]">SOUND MIXER</h2>
+            <h2 className="m-0 text-[clamp(22px,3vw,32px)] font-medium text-night-text">
+              SOUND MIXER
+            </h2>
           </div>
         </div>
         <div className="mx-auto grid max-w-[982px] grid-cols-4 gap-[14px] max-[600px]:grid-cols-2 max-[391px]:!grid-cols-1">
@@ -202,9 +216,16 @@ function App() {
                     )}
                   </button>
                 </div>
-                <h3 className="m-0 text-base font-semibold text-[#eaf2ff]">{sound.title}</h3>
+                <h3 className="m-0 text-base font-semibold text-[#eaf2ff]">
+                  {sound.title}
+                </h3>
                 <div className="sound-controls flex select-none items-center gap-2">
-                  <span className="min-w-7 text-right text-[11px] tabular-nums text-[#90a9cb]" aria-hidden="true">{state.volume}%</span>
+                  <span
+                    className="min-w-7 text-right text-[11px] tabular-nums text-[#90a9cb]"
+                    aria-hidden="true"
+                  >
+                    {state.volume}%
+                  </span>
                   <Slider
                     className="min-w-0 w-full flex-1"
                     aria-label={`${sound.title} 볼륨`}

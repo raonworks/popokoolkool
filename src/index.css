@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Segoe UI", system-ui, sans-serif;
+  --font-display: "IyagiGGC", "Segoe UI", system-ui, sans-serif;
+
+  --color-night-950: #050c17;
+  --color-night-900: #07101d;
+  --color-night-800: #0d1d32;
+  --color-night-700: #14253d;
+  --color-night-text: #eaf2ff;
+  --color-night-muted: #a5b7d1;
+  --color-night-accent: #d6aa79;
+  --color-night-focus: #b8d3f5;
+}
+
 @font-face {
   font-family: "IyagiGGC";
   src: url("./assets/fonts/IyagiGGC.woff") format("woff");
@@ -9,7 +23,7 @@
 }
 
 :root {
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   color: #eaf2ff;
   background: #07101d;
   font-synthesis: none;
@@ -19,7 +33,7 @@
 }
 
 #root {
-  width: 1126px;
+  width: min(1126px, 100%);
   max-width: 100%;
   margin: 0 auto;
   text-align: center;

@@ -4,9 +4,9 @@
 
 이 프로젝트는 Vite가 생성한 React + TypeScript 프론트엔드 애플리케이션입니다. 현재는 Vite 기본 화면을 기반으로 다음 요소가 구현되어 있습니다.
 
-- `src/App.tsx`: 메인 화면, 카운터 상태, React/Vite 안내 링크
-- `src/App.css`: 메인 화면의 레이아웃과 컴포넌트 스타일
-- `src/index.css`: 전역 디자인 토큰, 타이포그래피, 기본 레이아웃
+- `src/App.tsx`: 수면 사운드 믹서 화면과 재생 상태
+- `src/App.css`: 외부 라이브러리 보정과 애니메이션
+- `src/index.css`: Tailwind import, 전역 디자인 토큰, 기본 레이아웃
 - `src/assets/`: Vite 번들에 포함되는 이미지 및 SVG 자산
 - `public/`: 파일 경로를 그대로 유지해야 하는 정적 자산
 
@@ -16,12 +16,14 @@
 
 | 영역               | 기술                                           |
 | ------------------ | ---------------------------------------------- |
-| UI                 | React 19                                       |
+| UI                 | React 19 + Tailwind CSS 4                      |
 | 언어               | TypeScript 6                                   |
 | 번들러/개발 서버   | Vite 8                                         |
 | 코드 품질          | ESLint 10, typescript-eslint, React Hooks 규칙 |
 | 모바일 패키징 기반 | Capacitor Android/Core/CLI 8                   |
 | 패키지 형식        | ESM (`type: module`)                           |
+
+Tailwind CSS 4는 `@tailwindcss/vite` 플러그인과 CSS-first 설정을 사용합니다. 별도의 `tailwind.config.js` 없이 `src/index.css`의 `@theme` 블록에서 색상과 폰트 같은 디자인 토큰을 정의하고, 컴포넌트에서는 Tailwind 유틸리티 클래스를 조합합니다.
 
 React Compiler는 현재 활성화되어 있지 않습니다.
 
@@ -111,8 +113,9 @@ npm run preview
 
 ### 스타일
 
-- 전역 디자인 값은 `src/index.css`의 CSS 변수에 추가합니다.
-- 특정 화면에만 필요한 스타일은 `src/App.css` 또는 해당 컴포넌트 스타일 파일에 둡니다.
+- 기본 UI 구성은 Tailwind 유틸리티 클래스를 사용합니다.
+- 공통 색상과 폰트는 `src/index.css`의 `@theme` 블록에 토큰으로 추가한 뒤 `bg-night-900`, `text-night-text`, `font-display`처럼 사용합니다.
+- Tailwind로 표현하기 어려운 외부 라이브러리 보정과 키프레임 애니메이션만 `src/App.css` 또는 해당 컴포넌트 스타일 파일에 둡니다.
 - 기존의 반응형 기준인 `1024px` 미디어 쿼리를 존중하고, 모바일 레이아웃이 깨지지 않는지 확인합니다.
 - 접근 가능한 포커스 상태를 제거하지 않습니다. 키보드로 조작할 수 있는 요소에는 명확한 `:focus-visible` 스타일을 제공합니다.
 - 이미지에는 의미에 맞는 `alt`를 지정하고, 장식 이미지는 빈 `alt`를 사용합니다.
