@@ -1,12 +1,50 @@
-import rainAudio from "../assets/sound/rain-1.mp3";
-import thunderAudio from "../assets/sound/thunder-1.mp3";
+/**
+ * 콘텐츠에 독립적인 수면 사운드 믹서 라이브러리.
+ *
+ * 어떤 사운드를 다룰 수 있는지(오디오 파일 URL, 합성 노이즈, 필터 설정)와
+ * 시스템 미디어 컨트롤에 표시할 메타데이터는 생성자 옵션으로 주입받는다.
+ * 이 모듈은 특정 사운드 리소스나 앱 도메인을 알지 못한다.
+ */
 
-export type SoundId = "rain" | "wind" | "thunder" | "fire";
+export type NoiseType = "white" | "pink" | "brown";
 
-export type SoundConfig = {
-  id: SoundId;
+export type SoundSourceConfig =
+  | { kind: "audio"; url: string }
+  | { kind: "noise"; noise: NoiseType };
+
+export type SoundFilterConfig = {
+  type: BiquadFilterType;
+  frequency: number;
+  q?: number;
+};
+
+export type SoundDefinition = {
+  id: string;
+  source: SoundSourceConfig;
+  filter?: SoundFilterConfig;
+};
+
+export type SoundState = {
+  id: string;
+  /** 0~100 사이의 퍼센트 값. */
   volume: number;
   isPlaying: boolean;
+};
+
+export type MediaSessionInfo = {
+  title: string;
+  artist?: string;
+  album?: string;
+};
+
+export type AudioPlayerOptions = {
+  sounds: readonly SoundDefinition[];
+  /** 0~100 사이의 퍼센트 값. 기본값은 68. */
+  masterVolume?: number;
+  /** 오디오 파일을 반복 재생할 때 이어 붙이는 크로스페이드 길이(초). 기본값은 1.5. */
+  crossfadeSeconds?: number;
+  /** 잠금 화면 등 시스템 미디어 컨트롤에 표시할 메타데이터. */
+  mediaSession?: MediaSessionInfo | null;
 };
 
 type AudioLayer = {
@@ -17,27 +55,15 @@ type AudioLayer = {
   nextAudioGain: GainNode | null;
   filter: BiquadFilterNode;
   gain: GainNode;
+  targetVolume: number;
   crossfadeTimer: number | null;
   isCrossfading: boolean;
 };
 
-const CROSSFADE_SECONDS = 1.5;
+const DEFAULT_MASTER_VOLUME_PERCENT = 68;
+const DEFAULT_CROSSFADE_SECONDS = 1.5;
 const CROSSFADE_CHECK_INTERVAL_MS = 100;
-
-const audioSources: Partial<Record<SoundId, string>> = {
-  rain: rainAudio,
-  thunder: thunderAudio,
-};
-
-const filterConfig: Record<
-  SoundId,
-  { type: BiquadFilterType; frequency: number }
-> = {
-  rain: { type: "lowpass", frequency: 5200 },
-  wind: { type: "lowpass", frequency: 900 },
-  thunder: { type: "lowpass", frequency: 240 },
-  fire: { type: "bandpass", frequency: 1800 },
-};
+const NOISE_BUFFER_SECONDS = 4;
 
 function clampVolume(volume: number) {
   return Math.min(1, Math.max(0, volume / 100));
@@ -46,18 +72,38 @@ function clampVolume(volume: number) {
 export class AudioPlayer {
   private context: AudioContext | null = null;
   private masterGain: GainNode | null = null;
-  private noiseBuffer: AudioBuffer | null = null;
-  private layers = new Map<SoundId, AudioLayer>();
-  private masterVolume = 0.68;
+  private noiseBuffers = new Map<NoiseType, AudioBuffer>();
+  private definitions = new Map<string, SoundDefinition>();
+  private layers = new Map<string, AudioLayer>();
+  private masterVolume: number;
+  private crossfadeSeconds: number;
+  private mediaSessionInfo: MediaSessionInfo | null;
+  private playing = false;
+
+  constructor(options: AudioPlayerOptions) {
+    options.sounds.forEach((definition) => {
+      this.definitions.set(definition.id, definition);
+    });
+    this.masterVolume = clampVolume(
+      options.masterVolume ?? DEFAULT_MASTER_VOLUME_PERCENT,
+    );
+    this.crossfadeSeconds = Math.max(
+      0,
+      options.crossfadeSeconds ?? DEFAULT_CROSSFADE_SECONDS,
+    );
+    this.mediaSessionInfo = options.mediaSession ?? null;
+  }
 
   private configureMediaSession() {
     if (!("mediaSession" in navigator)) return;
 
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: "포포의 쿨쿨",
-      artist: "Popo KoolKool",
-      album: "수면 사운드 믹서",
-    });
+    if (this.mediaSessionInfo) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: this.mediaSessionInfo.title,
+        artist: this.mediaSessionInfo.artist,
+        album: this.mediaSessionInfo.album,
+      });
+    }
     navigator.mediaSession.setActionHandler("play", () => {
       void this.resume();
     });
@@ -90,46 +136,89 @@ export class AudioPlayer {
     return this.context;
   }
 
-  private createNoiseBuffer(context: AudioContext) {
-    if (this.noiseBuffer) return this.noiseBuffer;
+  private createNoiseBuffer(context: AudioContext, type: NoiseType) {
+    const cached = this.noiseBuffers.get(type);
+    if (cached) return cached;
 
     const buffer = context.createBuffer(
       1,
-      context.sampleRate * 4,
+      context.sampleRate * NOISE_BUFFER_SECONDS,
       context.sampleRate,
     );
     const channel = buffer.getChannelData(0);
 
-    for (let index = 0; index < channel.length; index += 1) {
-      channel[index] = Math.random() * 2 - 1;
+    if (type === "white") {
+      for (let index = 0; index < channel.length; index += 1) {
+        channel[index] = Math.random() * 2 - 1;
+      }
+    } else if (type === "pink") {
+      let b0 = 0;
+      let b1 = 0;
+      let b2 = 0;
+      let b3 = 0;
+      let b4 = 0;
+      let b5 = 0;
+      let b6 = 0;
+
+      for (let index = 0; index < channel.length; index += 1) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.969 * b2 + white * 0.153852;
+        b3 = 0.8665 * b3 + white * 0.3104856;
+        b4 = 0.55 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.016898;
+        channel[index] =
+          (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+        b6 = white * 0.115926;
+      }
+    } else {
+      let last = 0;
+
+      for (let index = 0; index < channel.length; index += 1) {
+        const white = Math.random() * 2 - 1;
+        last = (last + 0.02 * white) / 1.02;
+        channel[index] = last * 3.5;
+      }
     }
 
-    this.noiseBuffer = buffer;
+    this.noiseBuffers.set(type, buffer);
     return buffer;
   }
 
-  private createLayer(config: SoundConfig) {
+  private createLayer(id: string) {
+    const definition = this.definitions.get(id);
+    if (!definition) {
+      throw new Error(`Sound is not registered: ${id}`);
+    }
+
     const context = this.ensureContext();
     const masterGain = this.masterGain;
     if (!masterGain) throw new Error("Audio mixer is not initialized");
 
     const filter = context.createBiquadFilter();
     const gain = context.createGain();
-    const soundFilter = filterConfig[config.id];
-    const sourceUrl = audioSources[config.id];
+    let input: AudioNode = gain;
     let source: AudioBufferSourceNode | null = null;
     let audio: HTMLAudioElement | null = null;
     let nextAudio: HTMLAudioElement | null = null;
     let audioGain: GainNode | null = null;
     let nextAudioGain: GainNode | null = null;
 
-    filter.type = soundFilter.type;
-    filter.frequency.value = soundFilter.frequency;
-    gain.gain.value = config.isPlaying ? clampVolume(config.volume) : 0;
+    if (definition.filter) {
+      filter.type = definition.filter.type;
+      filter.frequency.value = definition.filter.frequency;
+      if (definition.filter.q !== undefined) {
+        filter.Q.value = definition.filter.q;
+      }
+      filter.connect(gain);
+      input = filter;
+    }
+    gain.gain.value = 0;
 
-    if (sourceUrl) {
-      audio = new Audio(sourceUrl);
-      nextAudio = new Audio(sourceUrl);
+    if (definition.source.kind === "audio") {
+      audio = new Audio(definition.source.url);
+      nextAudio = new Audio(definition.source.url);
       audio.loop = false;
       nextAudio.loop = false;
       audio.preload = "auto";
@@ -138,23 +227,19 @@ export class AudioPlayer {
       nextAudioGain = context.createGain();
       audioGain.gain.value = 1;
       nextAudioGain.gain.value = 0;
-      context
-        .createMediaElementSource(audio)
-        .connect(audioGain)
-        .connect(filter);
-      context
-        .createMediaElementSource(nextAudio)
-        .connect(nextAudioGain)
-        .connect(filter);
+      context.createMediaElementSource(audio).connect(audioGain);
+      context.createMediaElementSource(nextAudio).connect(nextAudioGain);
+      audioGain.connect(input);
+      nextAudioGain.connect(input);
     } else {
       source = context.createBufferSource();
-      source.buffer = this.createNoiseBuffer(context);
+      source.buffer = this.createNoiseBuffer(context, definition.source.noise);
       source.loop = true;
-      source.connect(filter);
+      source.connect(input);
       source.start();
     }
 
-    filter.connect(gain).connect(masterGain);
+    gain.connect(masterGain);
 
     const layer: AudioLayer = {
       source,
@@ -164,10 +249,11 @@ export class AudioPlayer {
       nextAudioGain,
       filter,
       gain,
+      targetVolume: 0,
       crossfadeTimer: null,
       isCrossfading: false,
     };
-    this.layers.set(config.id, layer);
+    this.layers.set(id, layer);
     return layer;
   }
 
@@ -182,8 +268,8 @@ export class AudioPlayer {
         layer.isCrossfading ||
         audio.paused ||
         !Number.isFinite(audio.duration) ||
-        audio.duration <= CROSSFADE_SECONDS ||
-        audio.currentTime < audio.duration - CROSSFADE_SECONDS
+        audio.duration <= this.crossfadeSeconds ||
+        audio.currentTime < audio.duration - this.crossfadeSeconds
       ) {
         return;
       }
@@ -210,7 +296,7 @@ export class AudioPlayer {
 
     layer.isCrossfading = true;
     const startTime = context.currentTime;
-    const endTime = startTime + CROSSFADE_SECONDS;
+    const endTime = startTime + this.crossfadeSeconds;
 
     nextAudio.currentTime = 0;
     nextGain.gain.cancelScheduledValues(startTime);
@@ -231,22 +317,36 @@ export class AudioPlayer {
       layer.audioGain = nextGain;
       layer.nextAudioGain = currentGain;
       layer.isCrossfading = false;
-    }, CROSSFADE_SECONDS * 1000);
+    }, this.crossfadeSeconds * 1000);
   }
 
-  private getLayer(config: SoundConfig) {
-    return this.layers.get(config.id) ?? this.createLayer(config);
+  private getLayer(id: string) {
+    return this.layers.get(id) ?? this.createLayer(id);
   }
 
-  async play(configs: SoundConfig[]) {
+  private stopLayerPlayback(layer: AudioLayer) {
+    layer.audio?.pause();
+    layer.nextAudio?.pause();
+    if (layer.audio) layer.audio.currentTime = 0;
+    if (layer.nextAudio) layer.nextAudio.currentTime = 0;
+    this.stopCrossfadeMonitor(layer);
+  }
+
+  async play(states: readonly SoundState[] = []) {
     const context = this.ensureContext();
     if (context.state === "suspended") await context.resume();
 
-    configs.forEach((config) => this.setSound(config));
-    await Promise.all(
-      Array.from(this.layers.values()).map((layer) => layer.audio?.play()),
-    );
-    this.layers.forEach((layer) => this.startCrossfadeMonitor(layer));
+    this.playing = true;
+    states.forEach((state) => this.setSound(state));
+
+    const playbackPromises: Promise<void>[] = [];
+    this.layers.forEach((layer) => {
+      if (layer.targetVolume <= 0) return;
+      if (layer.audio) playbackPromises.push(layer.audio.play());
+      this.startCrossfadeMonitor(layer);
+    });
+
+    await Promise.all(playbackPromises);
     if ("mediaSession" in navigator)
       navigator.mediaSession.playbackState = "playing";
   }
@@ -254,15 +354,22 @@ export class AudioPlayer {
   private async resume() {
     if (!this.context) return;
     await this.context.resume();
-    this.layers.forEach(({ audio }) => {
-      void audio?.play();
+    this.playing = true;
+
+    const playbackPromises: Promise<void>[] = [];
+    this.layers.forEach((layer) => {
+      if (layer.targetVolume <= 0) return;
+      if (layer.audio) playbackPromises.push(layer.audio.play());
+      this.startCrossfadeMonitor(layer);
     });
-    this.layers.forEach((layer) => this.startCrossfadeMonitor(layer));
+
+    await Promise.all(playbackPromises);
     if ("mediaSession" in navigator)
       navigator.mediaSession.playbackState = "playing";
   }
 
   pause() {
+    this.playing = false;
     this.layers.forEach((layer) => {
       layer.audio?.pause();
       layer.nextAudio?.pause();
@@ -286,9 +393,10 @@ export class AudioPlayer {
     }
   }
 
-  setSound(config: SoundConfig) {
-    const layer = this.getLayer(config);
-    const targetVolume = config.isPlaying ? clampVolume(config.volume) : 0;
+  setSound(state: SoundState) {
+    const layer = this.getLayer(state.id);
+    const targetVolume = state.isPlaying ? clampVolume(state.volume) : 0;
+    layer.targetVolume = targetVolume;
 
     if (this.context) {
       layer.gain.gain.setTargetAtTime(
@@ -299,9 +407,20 @@ export class AudioPlayer {
     } else {
       layer.gain.gain.value = targetVolume;
     }
+
+    if (targetVolume <= 0) {
+      this.stopLayerPlayback(layer);
+      return;
+    }
+
+    if (this.playing && layer.audio && layer.audio.paused) {
+      void layer.audio.play().catch(() => undefined);
+      this.startCrossfadeMonitor(layer);
+    }
   }
 
   destroy() {
+    this.playing = false;
     this.layers.forEach((layer) => {
       const { source, audio, nextAudio } = layer;
       source?.stop();
@@ -313,7 +432,7 @@ export class AudioPlayer {
     if (this.context) void this.context.close();
     this.context = null;
     this.masterGain = null;
-    this.noiseBuffer = null;
+    this.noiseBuffers.clear();
     if ("mediaSession" in navigator) {
       navigator.mediaSession.playbackState = "none";
       navigator.mediaSession.metadata = null;

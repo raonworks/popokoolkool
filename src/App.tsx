@@ -5,33 +5,15 @@ import {
   SoundOutlined,
 } from "@ant-design/icons";
 import { Button, Slider } from "antd";
-import { AudioPlayer, type SoundConfig } from "./lib/audioPlayer";
+import { AudioPlayer } from "./lib/audioPlayer";
 import {
   audioBackground,
   startAudioBackground,
   stopAudioBackground,
 } from "./lib/audioBackground";
+import { audioPlayerOptions, soundOptions, type SoundId } from "./sounds";
 import "./App.css";
 // import { stars } from "./contants";
-
-const soundOptions = [
-  {
-    id: "rain",
-    title: "잔잔한 비",
-  },
-  {
-    id: "wind",
-    title: "느린 바람",
-  },
-  {
-    id: "thunder",
-    title: "먼 천둥",
-  },
-  {
-    id: "fire",
-    title: "작은 모닥불",
-  },
-] as const;
 
 function App() {
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
@@ -51,7 +33,7 @@ function App() {
   const displayedVolume = isPlaying ? volume : 0;
 
   useEffect(() => {
-    const audioPlayer = new AudioPlayer();
+    const audioPlayer = new AudioPlayer(audioPlayerOptions);
     audioPlayerRef.current = audioPlayer;
     let mediaActionListener: { remove: () => Promise<void> } | undefined;
 
@@ -77,7 +59,7 @@ function App() {
   useEffect(() => {
     Object.entries(soundStates).forEach(([id, state]) => {
       audioPlayerRef.current?.setSound({
-        id: id as SoundConfig["id"],
+        id: id as SoundId,
         isPlaying: state.isPlaying,
         volume: state.volume,
       });
@@ -93,7 +75,7 @@ function App() {
       void audioPlayer
         .play(
           Object.entries(soundStates).map(([id, state]) => ({
-            id: id as SoundConfig["id"],
+            id: id as SoundId,
             ...state,
           })),
         )
